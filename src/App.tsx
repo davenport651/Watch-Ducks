@@ -344,10 +344,10 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3 text-[11px]">
-            <span>Basic (5)</span>
-            <span className="text-orange-400">Copper (100)</span>
-            <span className="text-slate-300">Silver (200)</span>
-            <span className="text-amber-400 font-bold">Gold (500)</span>
+            <span>Basic (+5/5s)</span>
+            <span className="text-orange-400">Copper (+100/5s)</span>
+            <span className="text-slate-300">Silver (+200/5s)</span>
+            <span className="text-amber-400 font-bold">Gold (+500/5s)</span>
           </div>
         </div>
       </main>

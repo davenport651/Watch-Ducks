@@ -228,9 +228,75 @@ class AtariAudioEngine {
   }
 
   /**
-   * Player falling asleep (Descending groggy buzz)
+   * Player falling asleep - gentle, dreamy descending chime at very low volume
    */
   public playFallAsleep() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const notes = [392, 329.6, 261.6, 196]; // G4, E4, C4, G3
+    notes.forEach((freq, idx) => {
+      const t = this.ctx!.currentTime + idx * 0.16;
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      // Low, gentle volume
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.045, t + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.28);
+    });
+  }
+
+  /**
+   * Soft, peaceful low-volume breathing pulse for floating 'Z Z Z'
+   * Replaces harsh noise with a gentle, mellow low-frequency tone
+   */
+  public playSnoreTick() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+
+    // Warm, rounded triangle oscillator
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(65, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.45);
+
+    // Deep lowpass filter to remove any high harshness
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(110, t);
+
+    // Very quiet, gentle volume envelope
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.035, t + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(t);
+    osc.stop(t + 0.45);
+  }
+
+  /**
+   * Soft water splash when duck lands on pond
+   */
+  public playDuckLand() {
     if (this.isMuted) return;
     this.initCtx();
     if (!this.ctx) return;
@@ -239,51 +305,44 @@ class AtariAudioEngine {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(200, t);
-    osc.frequency.exponentialRampToValueAtTime(60, t + 0.6);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, t);
+    osc.frequency.exponentialRampToValueAtTime(140, t + 0.12);
 
-    gain.gain.setValueAtTime(0.2, t);
-    gain.gain.linearRampToValueAtTime(0.25, t + 0.3);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.65);
+    gain.gain.setValueAtTime(0.06, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
     osc.start(t);
-    osc.stop(t + 0.65);
+    osc.stop(t + 0.12);
   }
 
   /**
-   * Blocky Snore puff (when floating 'z z z' spawns)
+   * Wing flutter when duck takes off and flies away
    */
-  public playSnoreTick() {
+  public playDuckTakeoff() {
     if (this.isMuted) return;
     this.initCtx();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-    const noise = this.ctx.createBufferSource();
-    const buf = this.createNoiseBuffer(0.25);
-    if (!buf) return;
-    noise.buffer = buf;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(180, t);
-    filter.Q.setValueAtTime(3.0, t);
-
+    const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.01, t);
-    gain.gain.linearRampToValueAtTime(0.12, t + 0.1);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
 
-    noise.connect(filter);
-    filter.connect(gain);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.exponentialRampToValueAtTime(440, t + 0.14);
+
+    gain.gain.setValueAtTime(0.05, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+    osc.connect(gain);
     gain.connect(this.ctx.destination);
 
-    noise.start(t);
-    noise.stop(t + 0.25);
+    osc.start(t);
+    osc.stop(t + 0.14);
   }
 
   /**

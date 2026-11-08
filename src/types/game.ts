@@ -2,23 +2,27 @@ export type PlayerState = 'STANDING' | 'SITTING' | 'ASLEEP';
 
 export type DuckType = 'basic' | 'copper' | 'silver' | 'gold';
 
+export type DuckState = 'FLYING_IN' | 'SWIMMING' | 'FLYING_AWAY';
+
 export interface Duck {
   id: string;
   type: DuckType;
+  state: DuckState;
   baseColor: string;
   accentColor: string;
   x: number;
   y: number;
+  targetX: number;
+  targetY: number;
   speed: number;
   direction: 1 | -1; // 1: moving right, -1: moving left
   lane: number;
-  isFlying: boolean;
-  flyAltitude?: number;
+  pondStayTimer: number; // Duration duck stays swimming on pond before flying away
+  scoreIntervalTimer: number; // Tracks elapsed 5-second intervals on pond while sitting awake
   bobPhase: number;
   wingPhase: number;
   headDipTimer: number;
   isDipping: boolean;
-  hasBeenScored: boolean;
   value: number;
   quackTimer: number;
 }

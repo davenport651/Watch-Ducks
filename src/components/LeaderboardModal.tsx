@@ -200,35 +200,35 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
           {/* Duck Species Point Reference */}
           <div className="pt-2 border-t border-zinc-800">
             <span className="text-[10px] text-zinc-500 font-mono block mb-2 font-bold uppercase">
-              SPECIES VALUE GUIDE:
+              SPECIES VALUE GUIDE (PER 5 SECONDS ON POND WHILE SITTING AWAKE):
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
               <div className="p-2 bg-zinc-900 rounded border border-zinc-800 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" />
                 <div>
                   <span className="text-zinc-300 font-bold block text-[11px]">Basic Ducks</span>
-                  <span className="text-emerald-400 font-atari text-[9px]">+5 PTS</span>
+                  <span className="text-emerald-400 font-atari text-[9px]">+5 PTS / 5s</span>
                 </div>
               </div>
               <div className="p-2 bg-zinc-900 rounded border border-zinc-800 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-amber-600 inline-block" />
                 <div>
                   <span className="text-orange-400 font-bold block text-[11px]">Copper Duck</span>
-                  <span className="text-orange-400 font-atari text-[9px]">+100 PTS</span>
+                  <span className="text-orange-400 font-atari text-[9px]">+100 PTS / 5s</span>
                 </div>
               </div>
               <div className="p-2 bg-zinc-900 rounded border border-zinc-800 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-slate-300 inline-block" />
                 <div>
                   <span className="text-slate-200 font-bold block text-[11px]">Silver Duck</span>
-                  <span className="text-slate-200 font-atari text-[9px]">+200 PTS</span>
+                  <span className="text-slate-200 font-atari text-[9px]">+200 PTS / 5s</span>
                 </div>
               </div>
               <div className="p-2 bg-zinc-900 rounded border border-zinc-800 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-yellow-300 inline-block animate-pulse" />
                 <div>
                   <span className="text-amber-300 font-bold block text-[11px]">Gold Duck</span>
-                  <span className="text-yellow-400 font-atari text-[9px]">+500 PTS</span>
+                  <span className="text-yellow-400 font-atari text-[9px]">+500 PTS / 5s</span>
                 </div>
               </div>
             </div>

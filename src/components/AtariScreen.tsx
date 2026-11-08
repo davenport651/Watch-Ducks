@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Duck, FloatingText, BreadCrumb, Particle, PlayerState, DuckType } from '../types/game';
+import { Duck, FloatingText, BreadCrumb, Particle, PlayerState, DuckType, DuckState } from '../types/game';
 import { atariAudio } from '../audio/atariAudio';
 
 interface AtariScreenProps {
@@ -18,6 +18,8 @@ interface AtariScreenProps {
 
 const CANVAS_WIDTH = 320;
 const CANVAS_HEIGHT = 220;
+const POND_MIN_X = 94; // Left water boundary where riverbank meets pond
+const POND_MAX_X = 296; // Right pond boundary before screen edge
 
 export const AtariScreen: React.FC<AtariScreenProps> = ({
   score,
@@ -41,7 +43,6 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
   const lastTimeRef = useRef<number>(performance.now());
   const snoreTimerRef = useRef<number>(0);
   const duckSpawnTimerRef = useRef<number>(0);
-  const rareDuckSpawnTimerRef = useRef<number>(0);
 
   // Synchronize playerState and sitting time into refs for access in RAF
   const playerStateRef = useRef(playerState);
@@ -51,26 +52,36 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
   const sleepThresholdRef = useRef(sleepThreshold);
   sleepThresholdRef.current = sleepThreshold;
 
-  // Initialize starting ducks
+  // Initialize starting ducks:
+  // "the game started with a random 2 to 4 ducks already on the pond"
   useEffect(() => {
-    ducksRef.current = [
-      createDuck('basic', 40, 1, 1),
-      createDuck('basic', 140, 2, -1),
-      createDuck('basic', 240, 3, 1),
-    ];
+    const initialCount = 2 + Math.floor(Math.random() * 3); // 2, 3, or 4 ducks
+    const initialDucks: Duck[] = [];
+
+    for (let i = 0; i < initialCount; i++) {
+      const lane = (i % 4) + 1;
+      const x = POND_MIN_X + 25 + ((POND_MAX_X - POND_MIN_X - 50) / initialCount) * i + (Math.random() - 0.5) * 20;
+      const dir: 1 | -1 = Math.random() > 0.5 ? 1 : -1;
+      initialDucks.push(createDuck('basic', 'SWIMMING', x, lane, dir));
+    }
+
+    ducksRef.current = initialDucks;
   }, []);
 
-  function createDuck(type: DuckType, initialX?: number, initialLane?: number, initialDir?: 1 | -1): Duck {
-    const lane = initialLane ?? Math.floor(Math.random() * 4) + 1; // Lanes 1 to 4
-    const direction = initialDir ?? (Math.random() > 0.5 ? 1 : -1);
-    const x = initialX ?? (direction === 1 ? -30 : CANVAS_WIDTH + 30);
-    // Lanes y-coords in pond area (Y between 120 and 195)
-    const y = 115 + lane * 18;
+  function createDuck(
+    type: DuckType,
+    initialState: DuckState = 'FLYING_IN',
+    initialX?: number,
+    initialLane?: number,
+    initialDir?: 1 | -1
+  ): Duck {
+    const lane = initialLane ?? (Math.floor(Math.random() * 4) + 1); // Lanes 1 to 4
+    const targetY = 115 + lane * 18;
+    const direction: 1 | -1 = initialDir ?? (Math.random() > 0.5 ? 1 : -1);
 
-    let baseColor = '#E6DE00';
-    let accentColor = '#D47200';
+    let baseColor = '#FACC15';
+    let accentColor = '#EA580C';
     let value = 5;
-    let isFlying = false;
 
     if (type === 'basic') {
       const basicPalettes = [
@@ -89,38 +100,70 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       baseColor = '#D97706'; // Metallic Copper
       accentColor = '#B45309';
       value = 100;
-      isFlying = Math.random() > 0.4;
     } else if (type === 'silver') {
       baseColor = '#E2E8F0'; // Metallic Silver
       accentColor = '#94A3B8';
       value = 200;
-      isFlying = Math.random() > 0.3;
     } else if (type === 'gold') {
       baseColor = '#FBBF24'; // Radiant Gold
       accentColor = '#D97706';
       value = 500;
-      isFlying = Math.random() > 0.2;
     }
 
-    const speed = type === 'basic' ? (0.35 + Math.random() * 0.35) : (isFlying ? 0.9 + Math.random() * 0.5 : 0.5 + Math.random() * 0.3);
+    // Counters:
+    // "all ducks swim side to side within the boundary of the pond for a random period of time...
+    // The metallic ducks have significantly shorter counters."
+    let pondStayTimer: number;
+    if (type === 'basic') {
+      pondStayTimer = 25 + Math.random() * 25; // 25 to 50 seconds
+    } else if (type === 'copper') {
+      pondStayTimer = 12 + Math.random() * 6; // 12 to 18 seconds
+    } else if (type === 'silver') {
+      pondStayTimer = 10 + Math.random() * 4; // 10 to 14 seconds
+    } else {
+      // gold
+      pondStayTimer = 7 + Math.random() * 4; // 7 to 11 seconds
+    }
+
+    const speed = type === 'basic' ? (0.35 + Math.random() * 0.25) : (0.45 + Math.random() * 0.3);
+
+    let x = initialX;
+    let y = targetY;
+    let targetX = 120 + Math.random() * 140;
+
+    if (initialState === 'FLYING_IN') {
+      // Start in the sky off-screen
+      const fromLeft = Math.random() > 0.5;
+      x = fromLeft ? -30 : CANVAS_WIDTH + 30;
+      y = 10 + Math.random() * 35; // high in sky
+      targetX = 110 + Math.random() * 150; // Landing location on pond
+    } else {
+      // Starting directly on pond
+      x = initialX ?? (POND_MIN_X + 15 + Math.random() * (POND_MAX_X - POND_MIN_X - 30));
+      y = targetY;
+      targetX = x;
+    }
 
     return {
       id: 'duck-' + Math.random().toString(36).substring(2, 9),
       type,
+      state: initialState,
       baseColor,
       accentColor,
-      x,
-      y: isFlying ? y - 35 : y,
+      x: x!,
+      y,
+      targetX,
+      targetY,
       speed,
       direction,
       lane,
-      isFlying,
-      flyAltitude: isFlying ? 15 + Math.random() * 10 : 0,
+      pondStayTimer,
+      // Stagger initial scoring interval if already swimming on pond
+      scoreIntervalTimer: initialState === 'SWIMMING' ? Math.random() * 4.0 : 0,
       bobPhase: Math.random() * Math.PI * 2,
       wingPhase: 0,
       headDipTimer: 2 + Math.random() * 8,
       isDipping: false,
-      hasBeenScored: false,
       value,
       quackTimer: 4 + Math.random() * 12,
     };
@@ -130,7 +173,7 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
   const throwBreadcrumb = () => {
     const crumb: BreadCrumb = {
       id: 'crumb-' + Date.now(),
-      x: 80 + Math.random() * 160,
+      x: 105 + Math.random() * 150,
       y: 130 + Math.random() * 50,
       life: 0,
       maxLife: 300, // 5 seconds
@@ -155,10 +198,10 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
 
     // Ducks react to breadcrumb!
     ducksRef.current.forEach((duck) => {
-      if (!duck.isFlying) {
+      if (duck.state === 'SWIMMING') {
         if ((duck.x < crumb.x && duck.direction === -1) || (duck.x > crumb.x && duck.direction === 1)) {
           // Gently turn toward crumb if close
-          if (Math.abs(duck.x - crumb.x) < 100) {
+          if (Math.abs(duck.x - crumb.x) < 120) {
             duck.direction = duck.x < crumb.x ? 1 : -1;
           }
         }
@@ -217,21 +260,24 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       }
     }
 
-    // Snore particles generator when asleep
+    // Snore particles generator when asleep:
+    // "The pulses that generate the noise needs to slow down and be lower in volume.
+    // Without such a harsh noise, please add little 'Z Z Z' floating above the player and turn his eyes from squares to slits or dashes."
     if (isPlayerAsleep) {
       snoreTimerRef.current += dt;
-      if (snoreTimerRef.current > 1.2) {
+      // Slowed down to ~3.4s intervals with gentle tone
+      if (snoreTimerRef.current > 3.4) {
         snoreTimerRef.current = 0;
         atariAudio.playSnoreTick();
         floatingsRef.current.push({
           id: 'snore-' + Math.random(),
-          text: Math.random() > 0.4 ? 'Z' : 'z',
-          x: 48 + Math.random() * 4,
-          y: 88,
+          text: Math.random() > 0.4 ? 'Z Z Z' : 'z z z',
+          x: 44 + (Math.random() - 0.5) * 6,
+          y: 92,
           color: '#93C5FD',
           life: 0,
-          maxLife: 70,
-          vy: -0.6,
+          maxLife: 110,
+          vy: -0.35, // gentle ascent
           scale: 1,
           isZZZ: true,
         });
@@ -240,32 +286,23 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       snoreTimerRef.current = 0;
     }
 
-    // Spawn basic ducks periodically
+    // Spawn new ducks flying in:
+    // "new ducks should fly in randomly, land on the pond"
     duckSpawnTimerRef.current += dt;
-    if (duckSpawnTimerRef.current > 3.5) {
+    if (duckSpawnTimerRef.current > 5.5) {
       duckSpawnTimerRef.current = 0;
-      if (ducksRef.current.length < 8) {
-        ducksRef.current.push(createDuck('basic'));
-      }
-    }
-
-    // Spawn rare metallic ducks periodically
-    rareDuckSpawnTimerRef.current += dt;
-    // Every 16-25s chance to spawn rare duck
-    if (rareDuckSpawnTimerRef.current > 18) {
-      rareDuckSpawnTimerRef.current = 0;
-      const roll = Math.random();
-      let rareType: DuckType | null = null;
-      if (roll < 0.50) {
-        rareType = 'copper'; // 50% of rare spawns
-      } else if (roll < 0.85) {
-        rareType = 'silver'; // 35% of rare spawns
-      } else {
-        rareType = 'gold'; // 15% of rare spawns (500 pts!)
-      }
-
-      if (rareType) {
-        ducksRef.current.push(createDuck(rareType));
+      // Maximum 7 ducks on screen at once
+      if (ducksRef.current.length < 7) {
+        const roll = Math.random();
+        let duckType: DuckType = 'basic';
+        if (roll < 0.12) {
+          duckType = 'copper';
+        } else if (roll < 0.18) {
+          duckType = 'silver';
+        } else if (roll < 0.22) {
+          duckType = 'gold';
+        }
+        ducksRef.current.push(createDuck(duckType, 'FLYING_IN'));
       }
     }
 
@@ -273,119 +310,185 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
     for (let i = ducksRef.current.length - 1; i >= 0; i--) {
       const duck = ducksRef.current[i];
       duck.bobPhase += dt * 3.5;
-      duck.wingPhase += dt * (duck.isFlying ? 14 : 4);
+      duck.wingPhase += dt * 14;
 
-      // Horizontal paddle or flight
-      duck.x += duck.direction * duck.speed * 60 * dt;
+      if (duck.state === 'FLYING_IN') {
+        // Fly towards landing spot on the pond
+        const dx = duck.targetX - duck.x;
+        const dy = duck.targetY - duck.y;
+        const dist = Math.hypot(dx, dy);
 
-      // Quack occasionally
-      duck.quackTimer -= dt;
-      if (duck.quackTimer <= 0) {
-        duck.quackTimer = 6 + Math.random() * 15;
-        if (Math.random() > 0.5 && duck.x > 30 && duck.x < CANVAS_WIDTH - 30) {
-          atariAudio.playQuack();
+        const flySpeed = 70 * dt;
+        if (dist <= flySpeed || duck.y >= duck.targetY - 2) {
+          // Touch down on pond!
+          duck.x = duck.targetX;
+          duck.y = duck.targetY;
+          duck.state = 'SWIMMING';
+          duck.direction = Math.random() > 0.5 ? 1 : -1;
+          duck.scoreIntervalTimer = 0;
+          atariAudio.playDuckLand();
+
+          // Water splash on landing
+          for (let p = 0; p < 6; p++) {
+            particlesRef.current.push({
+              id: 'sp-' + Math.random(),
+              x: duck.x + 8,
+              y: duck.y + 6,
+              vx: (Math.random() - 0.5) * 1.2,
+              vy: -0.6 - Math.random() * 0.8,
+              color: '#60A5FA',
+              life: 0,
+              maxLife: 18,
+              size: 2,
+            });
+          }
+        } else {
+          duck.x += (dx / dist) * flySpeed;
+          duck.y += (dy / dist) * flySpeed;
+          duck.direction = dx >= 0 ? 1 : -1;
         }
-      }
+      } else if (duck.state === 'SWIMMING') {
+        // "all ducks swim side to side within the boundary of the pond for a random period of time"
+        duck.x += duck.direction * duck.speed * 60 * dt;
 
-      // Head dip into pond occasionally
-      duck.headDipTimer -= dt;
-      if (duck.headDipTimer <= 0) {
-        duck.isDipping = true;
-        if (duck.headDipTimer < -0.8) {
-          duck.isDipping = false;
-          duck.headDipTimer = 4 + Math.random() * 8;
+        // Pond boundary checks
+        if (duck.direction === -1 && duck.x <= POND_MIN_X) {
+          duck.x = POND_MIN_X;
+          duck.direction = 1;
+        } else if (duck.direction === 1 && duck.x >= POND_MAX_X) {
+          duck.x = POND_MAX_X;
+          duck.direction = -1;
         }
-      }
 
-      // Metallic sparkle particles
-      if (duck.type !== 'basic' && Math.random() > 0.6) {
-        particlesRef.current.push({
-          id: 'sp-' + Math.random(),
-          x: duck.x + 8,
-          y: duck.y + 4,
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: -0.3 - Math.random() * 0.5,
-          color: duck.type === 'gold' ? '#FDE047' : (duck.type === 'silver' ? '#F8FAFC' : '#FB923C'),
-          life: 0,
-          maxLife: 25,
-          size: 2,
-        });
-      }
+        // Quack occasionally
+        duck.quackTimer -= dt;
+        if (duck.quackTimer <= 0) {
+          duck.quackTimer = 6 + Math.random() * 15;
+          if (Math.random() > 0.5) {
+            atariAudio.playQuack();
+          }
+        }
 
-      // Scoring Condition:
-      // "Players earn points only when they sit on the bench using the down arrow."
-      // As ducks swim across the viewing zone (x: 50 to 270), if player is SITTING (and not asleep!), award points!
-      if (!duck.hasBeenScored && isPlayerSitting && !isPlayerAsleep) {
-        const viewingZoneStart = 70;
-        const viewingZoneEnd = 240;
-        const inZone = (duck.direction === 1 && duck.x >= viewingZoneStart) ||
-                       (duck.direction === -1 && duck.x <= viewingZoneEnd);
+        // Head dip into pond occasionally
+        duck.headDipTimer -= dt;
+        if (duck.headDipTimer <= 0) {
+          duck.isDipping = true;
+          if (duck.headDipTimer < -0.8) {
+            duck.isDipping = false;
+            duck.headDipTimer = 4 + Math.random() * 8;
+          }
+        }
 
-        if (inZone) {
-          duck.hasBeenScored = true;
-          onScoreIncrease(duck.value, duck.type);
+        // Metallic sparkle particles
+        if (duck.type !== 'basic' && Math.random() > 0.6) {
+          particlesRef.current.push({
+            id: 'sp-' + Math.random(),
+            x: duck.x + 8,
+            y: duck.y + 4,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: -0.3 - Math.random() * 0.5,
+            color: duck.type === 'gold' ? '#FDE047' : (duck.type === 'silver' ? '#F8FAFC' : '#FB923C'),
+            life: 0,
+            maxLife: 25,
+            size: 2,
+          });
+        }
 
-          // Audio feedback
-          if (duck.type === 'basic') {
-            atariAudio.playBasicDuckScore();
-            floatingsRef.current.push({
-              id: 'fl-' + Math.random(),
-              text: '+5',
-              x: duck.x,
-              y: duck.y - 10,
-              color: '#4ADE80',
+        // SCORING MECHANIC UPDATE:
+        // "each duck is worth it's number of points for every 5 seconds it is on the pond and the user is sitting on the bench awake."
+        if (isPlayerSitting && !isPlayerAsleep) {
+          duck.scoreIntervalTimer += dt;
+          if (duck.scoreIntervalTimer >= 5.0) {
+            duck.scoreIntervalTimer -= 5.0; // Advance interval
+            onScoreIncrease(duck.value, duck.type);
+
+            if (duck.type === 'basic') {
+              atariAudio.playBasicDuckScore();
+              floatingsRef.current.push({
+                id: 'fl-' + Math.random(),
+                text: '+5',
+                x: duck.x,
+                y: duck.y - 10,
+                color: '#4ADE80',
+                life: 0,
+                maxLife: 45,
+                vy: -0.6,
+                scale: 1,
+              });
+            } else if (duck.type === 'copper') {
+              atariAudio.playCopperDuck();
+              floatingsRef.current.push({
+                id: 'fl-' + Math.random(),
+                text: '+100 COPPER!',
+                x: duck.x - 12,
+                y: duck.y - 14,
+                color: '#FB923C',
+                life: 0,
+                maxLife: 60,
+                vy: -0.7,
+                scale: 1.2,
+              });
+            } else if (duck.type === 'silver') {
+              atariAudio.playSilverDuck();
+              floatingsRef.current.push({
+                id: 'fl-' + Math.random(),
+                text: '+200 SILVER!',
+                x: duck.x - 12,
+                y: duck.y - 14,
+                color: '#E2E8F0',
+                life: 0,
+                maxLife: 65,
+                vy: -0.7,
+                scale: 1.3,
+              });
+            } else if (duck.type === 'gold') {
+              atariAudio.playGoldDuck();
+              floatingsRef.current.push({
+                id: 'fl-' + Math.random(),
+                text: '+500 GOLD!!',
+                x: duck.x - 15,
+                y: duck.y - 16,
+                color: '#FACC15',
+                life: 0,
+                maxLife: 80,
+                vy: -0.8,
+                scale: 1.5,
+              });
+            }
+          }
+        }
+
+        // Stay counter countdown:
+        // "then each flies away when it's counter finishes. The metallic ducks have significantly shorter counters."
+        duck.pondStayTimer -= dt;
+        if (duck.pondStayTimer <= 0) {
+          duck.state = 'FLYING_AWAY';
+          atariAudio.playDuckTakeoff();
+
+          // Takeoff splash
+          for (let p = 0; p < 5; p++) {
+            particlesRef.current.push({
+              id: 'sp-' + Math.random(),
+              x: duck.x + 8,
+              y: duck.y + 6,
+              vx: (Math.random() - 0.5) * 1.0,
+              vy: -0.5 - Math.random() * 0.7,
+              color: '#93C5FD',
               life: 0,
-              maxLife: 45,
-              vy: -0.7,
-              scale: 1,
-            });
-          } else if (duck.type === 'copper') {
-            atariAudio.playCopperDuck();
-            floatingsRef.current.push({
-              id: 'fl-' + Math.random(),
-              text: '+100 COPPER!',
-              x: duck.x - 10,
-              y: duck.y - 14,
-              color: '#FB923C',
-              life: 0,
-              maxLife: 65,
-              vy: -0.8,
-              scale: 1.2,
-            });
-          } else if (duck.type === 'silver') {
-            atariAudio.playSilverDuck();
-            floatingsRef.current.push({
-              id: 'fl-' + Math.random(),
-              text: '+200 SILVER!',
-              x: duck.x - 10,
-              y: duck.y - 14,
-              color: '#E2E8F0',
-              life: 0,
-              maxLife: 70,
-              vy: -0.8,
-              scale: 1.3,
-            });
-          } else if (duck.type === 'gold') {
-            atariAudio.playGoldDuck();
-            floatingsRef.current.push({
-              id: 'fl-' + Math.random(),
-              text: '+500 GOLD!!',
-              x: duck.x - 15,
-              y: duck.y - 16,
-              color: '#FACC15',
-              life: 0,
-              maxLife: 85,
-              vy: -0.9,
-              scale: 1.5,
+              maxLife: 15,
+              size: 2,
             });
           }
         }
-      }
+      } else if (duck.state === 'FLYING_AWAY') {
+        // Fly upward into the sky and away off-screen
+        duck.y -= 1.1 * 60 * dt;
+        duck.x += duck.direction * 1.3 * 60 * dt;
 
-      // Remove ducks that swim off screen
-      if ((duck.direction === 1 && duck.x > CANVAS_WIDTH + 40) ||
-          (duck.direction === -1 && duck.x < -40)) {
-        ducksRef.current.splice(i, 1);
+        // Remove once off-screen
+        if (duck.y < -35 || duck.x < -40 || duck.x > CANVAS_WIDTH + 40) {
+          ducksRef.current.splice(i, 1);
+        }
       }
     }
 
@@ -395,7 +498,7 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       fl.life += 1;
       fl.y += fl.vy;
       if (fl.isZZZ) {
-        fl.x += Math.sin(fl.life * 0.15) * 0.5;
+        fl.x += Math.sin(fl.life * 0.12) * 0.35;
       }
       if (fl.life >= fl.maxLife) {
         floatingsRef.current.splice(i, 1);
@@ -533,7 +636,7 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
     // 11. FLOATING TEXTS (+5, +100, Z Z Z)
     floatingsRef.current.forEach((fl) => {
       ctx.fillStyle = fl.color;
-      ctx.font = fl.isZZZ ? 'bold 12px "Press Start 2P", monospace' : 'bold 9px "Press Start 2P", monospace';
+      ctx.font = fl.isZZZ ? '7px "Press Start 2P", monospace' : 'bold 9px "Press Start 2P", monospace';
       ctx.fillText(fl.text, Math.floor(fl.x), Math.floor(fl.y));
     });
 
@@ -598,7 +701,7 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       ctx.fillStyle = '#FBD38D';
       ctx.fillRect(px + 2, py + 4, 7, 6);
 
-      // Eye watching pond
+      // Eye watching pond (square)
       ctx.fillStyle = '#1A202C';
       ctx.fillRect(px + 6, py + 6, 2, 2);
 
@@ -632,7 +735,7 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       ctx.fillStyle = '#FBD38D';
       ctx.fillRect(px + 2, py, 7, 6);
 
-      // Eye watching the ducks intently
+      // Eye watching the ducks intently (square)
       ctx.fillStyle = '#1A202C';
       ctx.fillRect(px + 6, py + 2, 2, 2);
 
@@ -668,14 +771,15 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       ctx.fillStyle = '#FBD38D';
       ctx.fillRect(px, py - 2, 8, 6);
 
-      // Closed eyes (horizontal shut line '— —')
+      // "turn his eyes from squares to slits or dashes"
+      // Thin horizontal slits/dashes for peaceful closed eyes:
       ctx.fillStyle = '#1A202C';
-      ctx.fillRect(px + 2, py, 2, 1);
-      ctx.fillRect(px + 5, py, 2, 1);
+      ctx.fillRect(px + 1, py + 1, 3, 1); // Left eye slit/dash
+      ctx.fillRect(px + 5, py + 1, 3, 1); // Right eye slit/dash
 
-      // Mouth hanging slightly open
+      // Peaceful resting mouth
       ctx.fillStyle = '#742A2A';
-      ctx.fillRect(px + 4, py + 3, 2, 2);
+      ctx.fillRect(px + 3, py + 3, 2, 1);
 
       // Shirt slumped
       ctx.fillStyle = '#0BC5EA';
@@ -693,16 +797,22 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       // Boots
       ctx.fillStyle = '#744210';
       ctx.fillRect(px + 8, py + 22, 6, 3);
+
+      // Subtle little sleeping 'z' resting over his cap
+      ctx.fillStyle = 'rgba(147, 197, 253, 0.7)';
+      ctx.font = '6px "Press Start 2P", monospace';
+      ctx.fillText('z', px + 7, py - 8);
     }
   }
 
   function drawAtariDuck(ctx: CanvasRenderingContext2D, duck: Duck) {
     const dx = Math.floor(duck.x);
-    const dy = Math.floor(duck.y + Math.sin(duck.bobPhase) * 1.5);
+    const dy = Math.floor(duck.y + (duck.state === 'SWIMMING' ? Math.sin(duck.bobPhase) * 1.5 : 0));
     const dir = duck.direction;
+    const isFlying = duck.state === 'FLYING_IN' || duck.state === 'FLYING_AWAY';
 
-    // Wake ripples behind duck in water (if not flying)
-    if (!duck.isFlying) {
+    // Wake ripples behind duck in water (only when swimming on pond)
+    if (duck.state === 'SWIMMING') {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
       const rippleX = dir === 1 ? dx - 4 : dx + 16;
       ctx.fillRect(rippleX, dy + 7, 4, 1);
@@ -721,7 +831,7 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
     // Duck body colors
     ctx.fillStyle = duck.baseColor;
 
-    if (duck.isFlying) {
+    if (isFlying) {
       // Flying Duck Sprite (Wings up/down animation)
       const wingUp = Math.sin(duck.wingPhase) > 0;
 
@@ -806,7 +916,6 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
 
   function drawAtariHUD(ctx: CanvasRenderingContext2D) {
     // Classic Atari 2600 chunky score header banner
-    // Score Bar Background
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, 20);
 
@@ -846,7 +955,7 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
         ctx.fillStyle = '#FEF08A';
         ctx.fillText(`DROWSY! SLEEP IN ${Math.ceil(timeLeft)}s`, 12, CANVAS_HEIGHT - 5);
       } else {
-        ctx.fillText('WATCHING DUCKS · EARNING POINTS', 12, CANVAS_HEIGHT - 5);
+        ctx.fillText('BENCH OCCUPIED · SCORING EVERY 5s', 12, CANVAS_HEIGHT - 5);
       }
     } else {
       // Standing

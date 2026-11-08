@@ -70,14 +70,20 @@ export const CartridgeManualModal: React.FC<CartridgeManualModalProps> = ({ isOp
           <div className="space-y-2">
             <h4 className="text-xs font-atari text-amber-400 flex items-center gap-2">
               <Feather className="w-4 h-4 text-amber-500" />
-              1. THE BENCH RULE (HOW TO SCORE)
+              1. THE BENCH RULE & 5-SECOND SCORING
             </h4>
             <div className="bg-zinc-900/80 p-3.5 rounded-lg border border-zinc-800 space-y-2">
               <p>
-                • <strong className="text-emerald-400">SIT TO EARN POINTS:</strong> Push the <span className="text-white font-atari text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded">▼ DOWN ARROW</span> to sit on the park bench. As you observe ducks swimming across the pond, your score will accumulate automatically!
+                • <strong className="text-emerald-400">SIT TO EARN POINTS:</strong> Push the <span className="text-white font-atari text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded">▼ DOWN ARROW</span> to sit on the park bench.
               </p>
               <p>
-                • <strong className="text-amber-400">STAND TO PAUSE:</strong> Push the <span className="text-white font-atari text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded">▲ UP ARROW</span> at any time to stand up. While standing, points will halt accumulating.
+                • <strong className="text-yellow-400">5-SECOND SCORING:</strong> While you are sitting awake on the bench, <strong className="text-white">each duck on the pond awards its point value for every 5 seconds it swims!</strong> The more ducks swimming simultaneously, the more points you rack up every 5 seconds!
+              </p>
+              <p>
+                • <strong className="text-cyan-400">DUCK LIFECYCLE:</strong> The game begins with 2 to 4 ducks already swimming. New ducks fly in from the sky and splash down onto the pond. Ducks swim side-to-side within the pond boundaries for their own counter duration, then take flight and fly away! Metallic ducks have significantly shorter counters.
+              </p>
+              <p>
+                • <strong className="text-amber-400">STAND TO PAUSE:</strong> Push the <span className="text-white font-atari text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded">▲ UP ARROW</span> at any time to stand up. While standing, points halt accumulating.
               </p>
             </div>
           </div>
@@ -93,7 +99,7 @@ export const CartridgeManualModal: React.FC<CartridgeManualModalProps> = ({ isOp
                 Watching ducks is so tranquil that after <strong className="text-white">no less than 2 minutes of continuous sitting</strong> (random interval between 120 and 160 seconds), your character will succumb to exhaustion and fall fast asleep!
               </p>
               <p>
-                • When asleep, blocky <strong className="text-sky-300 font-atari">‘Z Z Z’</strong>s will float into the sky and <strong className="text-white">POINTS WILL CEASE ACCUMULATING!</strong>
+                • When asleep, your eyes turn to slits, gentle blocky <strong className="text-sky-300 font-atari">‘Z Z Z’</strong>s float above your head with soft breathing pulses, and <strong className="text-white">POINTS CEASE ACCUMULATING!</strong>
               </p>
               <p>
                 • <strong className="text-amber-300">WAKING UP:</strong> You must push the <span className="text-white font-atari text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded">▲ UP ARROW</span> to stand up and wake yourself. Then push the <span className="text-white font-atari text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded">▼ DOWN ARROW</span> to sit back down and resume earning points!
@@ -108,33 +114,33 @@ export const CartridgeManualModal: React.FC<CartridgeManualModalProps> = ({ isOp
           <div className="space-y-2">
             <h4 className="text-xs font-atari text-yellow-400 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-yellow-500" />
-              3. DUCK SPECIES & POINT VALUES
+              3. DUCK SPECIES & POINT VALUES (EVERY 5 SECONDS)
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3 bg-zinc-900 rounded-lg border border-zinc-800">
                 <span className="text-xs font-bold text-yellow-400 block mb-1">
-                  BASIC POND DUCKS: 5 POINTS
+                  BASIC POND DUCKS: 5 PTS / 5 SEC
                 </span>
                 <p className="text-[11px] text-zinc-400">
-                  Yellow, Mallard Green, Cyan, Magenta, Orange, and White ducks regularly paddling through the water. Award 5 points each when observed from the bench.
+                  Yellow, Mallard Green, Cyan, Magenta, Orange, and White ducks. Stay on the pond for 25–50 seconds swimming side-to-side before flying away.
                 </p>
               </div>
 
               <div className="p-3 bg-zinc-900 rounded-lg border border-orange-900/50">
                 <span className="text-xs font-bold text-orange-400 block mb-1">
-                  COPPER DUCK: 100 POINTS
+                  COPPER DUCK: 100 PTS / 5 SEC
                 </span>
                 <p className="text-[11px] text-zinc-400">
-                  A rare burnished metallic copper duck that occasionally flies overhead or swims across the middle ripples.
+                  Rare burnished metallic copper duck. Shorter pond visit (12–18s) before taking flight!
                 </p>
               </div>
 
               <div className="p-3 bg-zinc-900 rounded-lg border border-slate-700/50">
                 <span className="text-xs font-bold text-slate-200 block mb-1">
-                  SILVER DUCK: 200 POINTS
+                  SILVER DUCK: 200 PTS / 5 SEC
                 </span>
                 <p className="text-[11px] text-zinc-400">
-                  An elusive chrome-feathered duck that glistens under the pixelated sun.
+                  Elusive chrome-feathered duck. Fleeting visit (10–14s) awarding huge 200 pt ticks!
                 </p>
               </div>
 
