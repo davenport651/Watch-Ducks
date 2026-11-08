@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #0c0d10;
+    color: #e2e8f0;
+    font-family: 'Press Start 2P', monospace, system-ui;
+    image-rendering: pixelated;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+.font-atari {
+  font-family: 'Press Start 2P', monospace;
+}
+
+.font-vt {
+  font-family: 'VT323', monospace;
+}
+
+.font-silkscreen {
+  font-family: 'Silkscreen', monospace;
+}
+
+/* CRT Scanlines and Screen Glass */
+.crt-overlay {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.45) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.04),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.04)
+  );
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+
+.crt-glow {
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(34, 197, 94, 0.15);
+}
+
+.crt-screen-curved {
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.crt-screen-curved::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: radial-gradient(circle at center, transparent 65%, rgba(0, 0, 0, 0.6) 100%);
+  pointer-events: none;
+}
+
+/* Subtle CRT phosphor flicker */
+@keyframes crtFlicker {
+  0% { opacity: 0.985; }
+  50% { opacity: 1; }
+  100% { opacity: 0.99; }
+}
+
+.crt-flicker {
+  animation: crtFlicker 0.15s infinite;
+}
+
+/* B&W filter */
+.atari-bw {
+  filter: grayscale(100%) contrast(120%);
+}
+
+/* Pixel crisp rendering */
+.pixelated {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Woodgrain bevel and tactile switches */
+.wood-trim {
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.15), inset 0 -2px 5px rgba(0,0,0,0.8), 0 10px 25px rgba(0,0,0,0.7);
+}
+
+.switch-plate {
+  background: linear-gradient(180deg, #2a2a2e 0%, #17171a 50%, #202024 100%);
+  border: 1px solid #3f3f46;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.1), 0 2px 4px rgba(0,0,0,0.6);
+}
