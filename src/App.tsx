@@ -69,37 +69,38 @@ export default function App() {
 
   // Handle Standing action (Up Arrow)
   const handleStand = useCallback(() => {
-    if (playerState === 'ASLEEP') {
-      // Wake up from sleep!
-      atariAudio.playWakeUp();
-      setPlayerState('STANDING');
-      setSittingTime(0);
-      setSleepThreshold(generateSleepThreshold(isQuickDemoSleep));
-    } else if (playerState === 'SITTING') {
-      // Stand up from sitting -> points pause
-      atariAudio.playStand();
-      setPlayerState('STANDING');
-      setSittingTime(0);
-    }
-  }, [playerState, isQuickDemoSleep]);
+    setPlayerState((prev) => {
+      if (prev === 'ASLEEP') {
+        atariAudio.playWakeUp();
+        setSittingTime(0);
+        setSleepThreshold(generateSleepThreshold(isQuickDemoSleep));
+        return 'STANDING';
+      } else if (prev === 'SITTING') {
+        atariAudio.playStand();
+        setSittingTime(0);
+        return 'STANDING';
+      }
+      return prev;
+    });
+  }, [isQuickDemoSleep]);
 
   // Handle Sitting action (Down Arrow)
   const handleSit = useCallback(() => {
-    if (playerState === 'STANDING') {
-      // Sit down on bench -> points begin accumulating!
-      atariAudio.playSit();
-      setPlayerState('SITTING');
-      setSittingTime(0);
-      setSleepThreshold(generateSleepThreshold(isQuickDemoSleep));
-    }
-  }, [playerState, isQuickDemoSleep]);
+    setPlayerState((prev) => {
+      if (prev === 'STANDING') {
+        atariAudio.playSit();
+        setSittingTime(0);
+        setSleepThreshold(generateSleepThreshold(isQuickDemoSleep));
+        return 'SITTING';
+      }
+      return prev;
+    });
+  }, [isQuickDemoSleep]);
 
-  // Handle Sleep Trigger
+  // Handle Sleep Trigger - always update state to ASLEEP regardless of closure
   const handleSleepTriggered = useCallback(() => {
-    if (playerState === 'SITTING') {
-      setPlayerState('ASLEEP');
-    }
-  }, [playerState]);
+    setPlayerState('ASLEEP');
+  }, []);
 
   // Handle Throwing Breadcrumb
   const handleThrowBread = useCallback(() => {
@@ -113,9 +114,7 @@ export default function App() {
   const handleScoreIncrease = useCallback((pts: number, type: DuckType) => {
     setScore((prev) => {
       const next = prev + pts;
-      if (next > stats.highScore) {
-        setStats((s) => ({ ...s, highScore: next }));
-      }
+      setStats((s) => ({ ...s, highScore: Math.max(s.highScore, next) }));
       return next;
     });
 
@@ -129,7 +128,7 @@ export default function App() {
     else if (type === 'copper') updateGameStats({ totalCopperSeen: 1 });
     else if (type === 'silver') updateGameStats({ totalSilverSeen: 1 });
     else if (type === 'gold') updateGameStats({ totalGoldSeen: 1 });
-  }, [stats.highScore]);
+  }, []);
 
   // Reset Game
   const handleResetGame = useCallback(() => {

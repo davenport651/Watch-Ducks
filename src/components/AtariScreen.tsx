@@ -44,13 +44,21 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
   const snoreTimerRef = useRef<number>(0);
   const duckSpawnTimerRef = useRef<number>(0);
 
-  // Synchronize playerState and sitting time into refs for access in RAF
+  // Synchronize all dynamic props into refs for access in RAF gameLoop
+  const scoreRef = useRef(score);
+  scoreRef.current = score;
+  const highScoreRef = useRef(highScore);
+  highScoreRef.current = highScore;
   const playerStateRef = useRef(playerState);
   playerStateRef.current = playerState;
   const sittingTimeRef = useRef(sittingTime);
   sittingTimeRef.current = sittingTime;
   const sleepThresholdRef = useRef(sleepThreshold);
   sleepThresholdRef.current = sleepThreshold;
+  const onScoreIncreaseRef = useRef(onScoreIncrease);
+  onScoreIncreaseRef.current = onScoreIncrease;
+  const onSleepTriggeredRef = useRef(onSleepTriggered);
+  onSleepTriggeredRef.current = onSleepTriggered;
 
   // Initialize starting ducks:
   // "the game started with a random 2 to 4 ducks already on the pond"
@@ -255,29 +263,45 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
     // Sleep check: points accumulate only while sitting, and random falling asleep occurs after >= 2 minutes (or test threshold)
     if (isPlayerSitting && !isPlayerAsleep) {
       if (sittingTimeRef.current >= sleepThresholdRef.current) {
-        onSleepTriggered();
+        // Immediately set local ref so next frame doesn't re-trigger and ducks immediately stop scoring!
+        playerStateRef.current = 'ASLEEP';
+        onSleepTriggeredRef.current();
         atariAudio.playFallAsleep();
+
+        // Immediately spawn an initial prominent floating 'Z Z Z'
+        floatingsRef.current.push({
+          id: 'snore-init-' + Date.now(),
+          text: 'Z Z Z',
+          x: 42,
+          y: 90,
+          color: '#FFFFFF',
+          life: 0,
+          maxLife: 120,
+          vy: -0.35,
+          scale: 1,
+          isZZZ: true,
+        });
       }
     }
 
     // Snore particles generator when asleep:
     // "The pulses that generate the noise needs to slow down and be lower in volume.
     // Without such a harsh noise, please add little 'Z Z Z' floating above the player and turn his eyes from squares to slits or dashes."
-    if (isPlayerAsleep) {
+    if (playerStateRef.current === 'ASLEEP') {
       snoreTimerRef.current += dt;
-      // Slowed down to ~3.4s intervals with gentle tone
-      if (snoreTimerRef.current > 3.4) {
+      // Slowed down to ~2.8s intervals with gentle tone
+      if (snoreTimerRef.current > 2.8) {
         snoreTimerRef.current = 0;
         atariAudio.playSnoreTick();
         floatingsRef.current.push({
           id: 'snore-' + Math.random(),
           text: Math.random() > 0.4 ? 'Z Z Z' : 'z z z',
-          x: 44 + (Math.random() - 0.5) * 6,
+          x: 40 + (Math.random() - 0.5) * 8,
           y: 92,
-          color: '#93C5FD',
+          color: '#FFFFFF',
           life: 0,
           maxLife: 110,
-          vy: -0.35, // gentle ascent
+          vy: -0.35,
           scale: 1,
           isZZZ: true,
         });
@@ -394,13 +418,15 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
           });
         }
 
-        // SCORING MECHANIC UPDATE:
+        // SCORING:
         // "each duck is worth it's number of points for every 5 seconds it is on the pond and the user is sitting on the bench awake."
-        if (isPlayerSitting && !isPlayerAsleep) {
+        // STRICT CHECK: ONLY score when the player is SITTING on the bench and NOT ASLEEP!
+        if (playerStateRef.current === 'SITTING') {
           duck.scoreIntervalTimer += dt;
           if (duck.scoreIntervalTimer >= 5.0) {
             duck.scoreIntervalTimer -= 5.0; // Advance interval
-            onScoreIncrease(duck.value, duck.type);
+            scoreRef.current += duck.value; // Instant synchronous HUD update!
+            onScoreIncreaseRef.current(duck.value, duck.type);
 
             if (duck.type === 'basic') {
               atariAudio.playBasicDuckScore();
@@ -635,9 +661,22 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
 
     // 11. FLOATING TEXTS (+5, +100, Z Z Z)
     floatingsRef.current.forEach((fl) => {
-      ctx.fillStyle = fl.color;
-      ctx.font = fl.isZZZ ? '7px "Press Start 2P", monospace' : 'bold 9px "Press Start 2P", monospace';
-      ctx.fillText(fl.text, Math.floor(fl.x), Math.floor(fl.y));
+      if (fl.isZZZ) {
+        ctx.font = 'bold 8px "Press Start 2P", monospace';
+        // Black outline for crisp 8-bit contrast against sky
+        ctx.fillStyle = '#000000';
+        ctx.fillText(fl.text, Math.floor(fl.x) - 1, Math.floor(fl.y));
+        ctx.fillText(fl.text, Math.floor(fl.x) + 1, Math.floor(fl.y));
+        ctx.fillText(fl.text, Math.floor(fl.x), Math.floor(fl.y) - 1);
+        ctx.fillText(fl.text, Math.floor(fl.x), Math.floor(fl.y) + 1);
+        // Bright text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(fl.text, Math.floor(fl.x), Math.floor(fl.y));
+      } else {
+        ctx.font = 'bold 9px "Press Start 2P", monospace';
+        ctx.fillStyle = fl.color;
+        ctx.fillText(fl.text, Math.floor(fl.x), Math.floor(fl.y));
+      }
     });
 
     // 12. RETRO HUD OVERLAY
@@ -701,9 +740,11 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       ctx.fillStyle = '#FBD38D';
       ctx.fillRect(px + 2, py + 4, 7, 6);
 
-      // Eye watching pond (square)
+      // Open eye watching pond (square 2x2 with white glint)
       ctx.fillStyle = '#1A202C';
       ctx.fillRect(px + 6, py + 6, 2, 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(px + 6, py + 6, 1, 1);
 
       // Shirt / Jacket (cyan)
       ctx.fillStyle = '#0BC5EA';
@@ -735,9 +776,11 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       ctx.fillStyle = '#FBD38D';
       ctx.fillRect(px + 2, py, 7, 6);
 
-      // Eye watching the ducks intently (square)
+      // Open eye watching the ducks intently (square 2x2 with white glint)
       ctx.fillStyle = '#1A202C';
       ctx.fillRect(px + 6, py + 2, 2, 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(px + 6, py + 2, 1, 1);
 
       // Shirt / Jacket
       ctx.fillStyle = '#0BC5EA';
@@ -758,50 +801,57 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
       ctx.fillStyle = '#744210';
       ctx.fillRect(px + 9, py + 24, 6, 3);
     } else if (state === 'ASLEEP') {
-      // Slumped back asleep on bench (X: 32, Y: 106)
-      const px = 32;
-      const py = 106;
+      // Slumped asleep on bench (X: 34, Y: 104)
+      const px = 34;
+      const py = 104;
 
-      // Red Cap tilted back/sideways
+      // Red Cap tilted back slightly
       ctx.fillStyle = '#E53E3E';
-      ctx.fillRect(px - 1, py - 6, 8, 4);
-      ctx.fillRect(px - 2, py - 4, 3, 3);
+      ctx.fillRect(px + 1, py - 3, 8, 4);
+      ctx.fillRect(px + 5, py - 1, 6, 2); // Visor
 
-      // Face tilted back
+      // Face in relaxed profile
       ctx.fillStyle = '#FBD38D';
-      ctx.fillRect(px, py - 2, 8, 6);
+      ctx.fillRect(px + 2, py + 1, 8, 6);
+
+      // Nose curve
+      ctx.fillStyle = '#E2B870';
+      ctx.fillRect(px + 9, py + 2, 1, 2);
 
       // "turn his eyes from squares to slits or dashes"
-      // Thin horizontal slits/dashes for peaceful closed eyes:
-      ctx.fillStyle = '#1A202C';
-      ctx.fillRect(px + 1, py + 1, 3, 1); // Left eye slit/dash
-      ctx.fillRect(px + 5, py + 1, 3, 1); // Right eye slit/dash
+      // Replace open square eye with clear horizontal slit dash (—):
+      // Eyelid crease above slit:
+      ctx.fillStyle = '#D4A373';
+      ctx.fillRect(px + 5, py + 2, 4, 1);
+      // Dark closed eyelid slit dash (4x1 pixels):
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(px + 5, py + 3, 4, 1);
 
-      // Peaceful resting mouth
-      ctx.fillStyle = '#742A2A';
-      ctx.fillRect(px + 3, py + 3, 2, 1);
+      // Relaxed sleeping mouth
+      ctx.fillStyle = '#833838';
+      ctx.fillRect(px + 6, py + 5, 2, 1);
 
       // Shirt slumped
       ctx.fillStyle = '#0BC5EA';
-      ctx.fillRect(px - 1, py + 4, 9, 8);
+      ctx.fillRect(px, py + 7, 9, 8);
 
-      // Limp hands
+      // Limp hands resting on lap
       ctx.fillStyle = '#FBD38D';
-      ctx.fillRect(px + 6, py + 11, 3, 3);
+      ctx.fillRect(px + 7, py + 11, 4, 3);
 
-      // Sitting legs
+      // Sitting bent legs
       ctx.fillStyle = '#2B6CB0';
-      ctx.fillRect(px, py + 12, 11, 4);
-      ctx.fillRect(px + 8, py + 16, 4, 6);
+      ctx.fillRect(px + 1, py + 15, 12, 4);
+      ctx.fillRect(px + 9, py + 19, 4, 6);
 
       // Boots
       ctx.fillStyle = '#744210';
-      ctx.fillRect(px + 8, py + 22, 6, 3);
+      ctx.fillRect(px + 9, py + 25, 6, 3);
 
-      // Subtle little sleeping 'z' resting over his cap
-      ctx.fillStyle = 'rgba(147, 197, 253, 0.7)';
-      ctx.font = '6px "Press Start 2P", monospace';
-      ctx.fillText('z', px + 7, py - 8);
+      // Stationary sleeping 'Z' directly above cap for instant visual recognition
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 7px "Press Start 2P", monospace';
+      ctx.fillText('Z', px + 7, py - 6);
     }
   }
 
@@ -919,16 +969,16 @@ export const AtariScreen: React.FC<AtariScreenProps> = ({
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
     ctx.fillRect(0, 0, CANVAS_WIDTH, 20);
 
-    // Score in bright Atari yellow
+    // Score in bright Atari yellow - Read directly from scoreRef.current!
     ctx.fillStyle = '#FACC15';
     ctx.font = '10px "Press Start 2P", monospace';
-    const scoreStr = score.toString().padStart(6, '0');
+    const scoreStr = scoreRef.current.toString().padStart(6, '0');
     ctx.fillText(`${scoreStr}`, 8, 14);
 
-    // High Score on top right
+    // High Score on top right - Read directly from highScoreRef.current!
     ctx.fillStyle = '#94A3B8';
     ctx.font = '7px "Press Start 2P", monospace';
-    const highStr = highScore.toString().padStart(6, '0');
+    const highStr = highScoreRef.current.toString().padStart(6, '0');
     ctx.fillText(`HI ${highStr}`, 215, 14);
 
     // Status / Sleep Warning Banner at bottom of canvas
